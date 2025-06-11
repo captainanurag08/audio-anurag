@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Anurag Audio Pro</title>
+  <style>
+    body {
+      background: linear-gradient(135deg, #0f0f0f, #202020);
+      color: #f0f0f0;
+      font-family: 'Segoe UI', sans-serif;
+      margin: 0;
+      padding: 20px;
+      text-align: center;
+      animation: fadeIn 2s ease forwards;
+      opacity: 0;
+    }
+    @keyframes fadeIn {
+      to { opacity: 1; }
+    }
+    h1 {
+      font-size: 36px;
+      margin-bottom: 30px;
+      color: #fff;
+      text-shadow: 0 0 8px #0ff, 0 0 20px #0ff;
+      animation: glow 2s ease-in-out infinite alternate;
+    }
+    @keyframes glow {
+      from {
+        text-shadow: 0 0 5px #0ff, 0 0 10px #0ff;
+      }
+      to {
+        text-shadow: 0 0 20px #0ff, 0 0 40px #0ff;
+      }
+    }
+    input[type=range] {
+      width: 250px;
+      margin: 8px 0 16px;
+    }
+    button, label {
+      margin: 8px 4px;
+      padding: 10px 18px;
+      border: none;
+      border-radius: 8px;
+      background: #333;
+      color: #eee;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #444;
+    }
+    canvas {
+      display: block;
+      margin: 30px auto 10px;
+      background: #181818;
+      border-radius: 10px;
+    }
+    .control-group {
+      margin: 20px 0;
+      padding: 10px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 12px;
+      display: inline-block;
+      min-width: 300px;
+    }
+    input[type=file] {
+      margin-bottom: 20px;
+    }
+    #progressBar {
+      width: 300px;
+    }
+    #timeDisplay {
+      margin-top: 10px;
+      font-size: 14px;
+      color: #ccc;
+    }
+  </style>
+</head>
+<body>
+
+<h1>Anurag Audio Pro 🎶</h1>
+
+<input type="file" id="fileInput"><br>
+
+<audio id="audio" crossorigin="anonymous"></audio>
+
+<div class="control-group">
+  <button onclick="playAudio()">▶️ Play</button>
+  <button onclick="pauseAudio()">⏸️ Pause</button>
+  <button onclick="stopAudio()">⏹️ Stop</button>
+  <button onclick="toggleNightMode()">🌙 Mode</button>
+</div>
+
+<div class="control-group">
+  <label>Volume</label><br>
+  <input type="range" id="volumeControl" min="0" max="1" step="0.01" value="1"><br>
+
+  <label>Bass</label><br>
+  <input type="range" id="bassControl" min="-30" max="30" step="1" value="0"><br>
+
+  <label>Treble</label><br>
+  <input type="range" id="trebleControl" min="-30" max="30" step="1" value="0"><br>
+
+  <label>Panning</label><br>
+  <input type="range" id="panControl" min="-1" max="1" step="0.01" value="0"><br>
+
+  <label>Pitch (Speed)</label><br>
+  <input type="range" id="pitchControl" min="0.5" max="2" step="0.01" value="1"><br>
+</div>
+
+<div class="control-group">
+  <label>Echo</label><br>
+  <input type="range" id="delayControl" min="0" max="1" step="0.01" value="0"><br>
+
+  <label>Distortion</label><br>
+  <input type="range" id="distortionControl" min="0" max="1000" step="1" value="0"><br>
+
+  <label>Highpass</label><br>
+  <input type="range" id="highpassControl" min="20" max="1000" step="1" value="20"><br>
+
+  <label>Lowpass</label><br>
+  <input type="range" id="lowpassControl" min="1000" max="20000" step="100" value="20000"><br>
+</div>
+
+<div class="control-group">
+  <button onclick="setEQ('flat')">Flat</button>
+  <button onclick="setEQ('pop')">Pop</button>
+  <button onclick="setEQ('rock')">Rock</button>
+  <button onclick="setEQ('classical')">Classical</button>
+</div>
+
+<div class="control-group">
+  <label>Progress</label><br>
+  <input type="range" id="progressBar" min="0" max="100" value="0">
+  <div id="timeDisplay">0:00 / 0:00</div>
+</div>
+
+<canvas id="visualizer" width="350" height="100"></canvas>
+
+<script>
+  const fileInput = document.getElementById("fileInput");
+  const audio = document.getElementById("audio");
+  const AudioContext = window.AudioContext || window.webkitAudioContext;
+  const audioCtx = new AudioContext();
+  const track = audioCtx.createMediaElementSource(audio);
+
+  const gainNode = audioCtx.createGain();
+  const bassEQ = audioCtx.createBiquadFilter(); bassEQ.type = "lowshelf"; bassEQ.frequency.value = 200;
+  const trebleEQ = audioCtx.createBiquadFilter(); trebleEQ.type = "highshelf"; trebleEQ.frequency.value = 3000;
+  const panner = audioCtx.createStereoPanner();
+  const delayNode = audioCtx.createDelay();
+  const distortionNode = audioCtx.createWaveShaper();
+  const highpass = audioCtx.createBiquadFilter(); highpass.type = "highpass"; highpass.frequency.value = 20;
+  const lowpass = audioCtx.createBiquadFilter(); lowpass.type = "lowpass"; lowpass.frequency.value = 20000;
+  const analyser = audioCtx.createAnalyser(); analyser.fftSize = 256;
+
+  track.connect(bassEQ).connect(trebleEQ).connect(panner).connect(delayNode).connect(distortionNode)
+  .connect(highpass).connect(lowpass).connect(gainNode).connect(analyser).connect(audioCtx.destination);
+
+  document.getElementById("volumeControl").oninput = e => gainNode.gain.value = e.target.value;
+  document.getElementById("bassControl").oninput = e => bassEQ.gain.value = e.target.value;
+  document.getElementById("trebleControl").oninput = e => trebleEQ.gain.value = e.target.value;
+  document.getElementById("panControl").oninput = e => panner.pan.value = e.target.value;
+  document.getElementById("pitchControl").oninput = e => audio.playbackRate = e.target.value;
+  document.getElementById("delayControl").oninput = e => delayNode.delayTime.value = e.target.value;
+  document.getElementById("distortionControl").oninput = e => distortionNode.curve = makeDistortionCurve(e.target.value);
+  document.getElementById("highpassControl").oninput = e => highpass.frequency.value = e.target.value;
+  document.getElementById("lowpassControl").oninput = e => lowpass.frequency.value = e.target.value;
+
+  function makeDistortionCurve(amount) {
+    const k = typeof amount === 'number' ? amount : 50;
+    const n_samples = 44100;
+    const curve = new Float32Array(n_samples);
+    const deg = Math.PI / 180;
+    for (let i = 0; i < n_samples; ++i) {
+      const x = i * 2 / n_samples - 1;
+      curve[i] = (3 + k) * x * 20 * deg / (Math.PI + k * Math.abs(x));
+    }
+    return curve;
+  }
+
+  function setEQ(preset) {
+    switch(preset) {
+      case 'flat': bassEQ.gain.value = 0; trebleEQ.gain.value = 0; break;
+      case 'pop': bassEQ.gain.value = 5; trebleEQ.gain.value = 6; break;
+      case 'rock': bassEQ.gain.value = 8; trebleEQ.gain.value = 8; break;
+      case 'classical': bassEQ.gain.value = -3; trebleEQ.gain.value = 5; break;
+    }
+  }
+
+  function playAudio() { audioCtx.resume(); audio.play(); }
+  function pauseAudio() { audio.pause(); }
+  function stopAudio() { audio.pause(); audio.currentTime = 0; }
+  function toggleNightMode() {
+    document.body.style.background = document.body.style.background === 'black' ? 'linear-gradient(135deg, #0f0f0f, #202020)' : 'black';
+    document.body.style.color = document.body.style.color === 'white' ? '#f0f0f0' : 'white';
+  }
+
+  const progressBar = document.getElementById("progressBar");
+  const timeDisplay = document.getElementById("timeDisplay");
+  audio.ontimeupdate = () => {
+    if(audio.duration) {
+      progressBar.value = (audio.currentTime / audio.duration) * 100;
+      timeDisplay.textContent = `${formatTime(audio.currentTime)} / ${formatTime(audio.duration)}`;
+    }
+  };
+  progressBar.oninput = () => { if(audio.duration) audio.currentTime = (progressBar.value / 100) * audio.duration; };
+  function formatTime(seconds) {
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60);
+    return `${m}:${s < 10 ? "0"+s : s}`;
+  }
+
+  fileInput.onchange = e => { const file = e.target.files[0]; if(file) audio.src = URL.createObjectURL(file); };
+
+  const canvas = document.getElementById("visualizer");
+  const ctx = canvas.getContext("2d");
+  const bufferLength = analyser.frequencyBinCount;
+  const dataArray = new Uint8Array(bufferLength);
+  function draw() {
+    requestAnimationFrame(draw);
+    analyser.getByteFrequencyData(dataArray);
+    ctx.fillStyle = "#181818";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    const barWidth = (canvas.width / bufferLength) * 1.5;
+    let x = 0;
+    for (let i = 0; i < bufferLength; i++) {
+      const barHeight = dataArray[i];
+      ctx.fillStyle = `rgb(${barHeight+50}, 50, 255)`;
+      ctx.fillRect(x, canvas.height - barHeight / 1.5, barWidth, barHeight / 1.5);
+      x += barWidth + 1;
+    }
+  }
+  draw();
+</script>
+
+</body>
+</html>
